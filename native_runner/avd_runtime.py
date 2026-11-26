@@ -129,7 +129,9 @@ def create_avd(force: bool = False) -> Path:
         "hw.audioOutput": "no",
         "fastboot.forceColdBoot": "yes",
     }
-    lines = [line for line in config.read_text(encoding="utf-8").splitlines() if line.split("=", 1)[0].strip() not in overrides]
+    # Keep userdata in the AVD directory so the installed game and its update survive reboots.
+    dropped = set(overrides) | {"disk.dataPartition.path"}
+    lines = [line for line in config.read_text(encoding="utf-8").splitlines() if line.split("=", 1)[0].strip() not in dropped]
     lines += [f"{key}={value}" for key, value in overrides.items()]
     config.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return avd_directory()
