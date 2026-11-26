@@ -37,6 +37,28 @@ macos/fl build
 macos/fl install
 ```
 
+### 已在 Mac mini（M4 / 16 GB）上验证（2026-11-26）
+
+- `production_ready=true`，引擎身份与 base-15.535.3 锁定值全部一致
+- 无画面评测 General 对 IL 2 局：General 2 胜，0 个被拒动作，一局约 94 秒（约 3 倍速）
+- 带画面 `offline_duel`：速猪专精对 General 正常出牌、交战、掉塔血
+- 苹果芯片专有问题：原生 arm64 默认开启堆指针标记（指针最高字节 0xb4），probe 的可读性检查因此失败，`observe` 会在 `"objects":[` 处被截断。离线 APK 已在 Manifest 里关闭这项（`allowNativeHeapPointerTagging=false`），`prepare` 也会用 `am compat` 兜底
+
+### 模型开局很被动
+
+作者的训练历程写过：argmax 解码下 General 和速猪专精在空场上倾向于等待。实测两边会满圣水一直等到第 2 分钟双倍圣水才出手。看 AI 对打时，可以在 `--artifact-dir` 目录里 `touch force-0`（或 `force-1`）强制该方下一次决策出牌；人机对战的 `offline_agent` 默认按概率采样，加 `--deterministic` 才是 argmax。
+
+### 人机对战
+
+模拟器窗口显示在 Mac mini 的屏幕上，用“屏幕共享”连过去操作：先点手牌，再点场地。
+
+```sh
+macos/fl start
+.venv/bin/python -m native_runner.training.v4.offline_agent \
+  --checkpoint checkpoints/General/checkpoint-step-00000460.pt \
+  --match-config macos/demo_match.json --actor-owner 0 --artifact-dir runs/agent
+```
+
 ## 步骤（原 15.535.86 档案）
 
 ```sh
@@ -58,7 +80,7 @@ macos/fl install                # 安装后自动启动引擎，失败会自动�
 macos/fl start                  # 以后每次开机后重启引擎
 .venv/bin/python -m native_runner.training.v4.offline_agent \
   --checkpoint checkpoints/General/checkpoint-step-00000460.pt \
-  --match-config native_runner/data/native_match.json --actor-owner 0 --artifact-dir runs/agent
+  --match-config macos/demo_match.json --actor-owner 0 --artifact-dir runs/agent
 .venv/bin/python -m native_runner.training.v4.evaluate \
   --checkpoint-a checkpoints/General/checkpoint-step-00000460.pt \
   --checkpoint-b checkpoints/IL/checkpoint-step-00029396.pt --games 2 --output runs/eval

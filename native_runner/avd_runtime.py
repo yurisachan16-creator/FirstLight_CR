@@ -344,6 +344,8 @@ def prepare(require_android_12: bool = True) -> dict:
     # The rebuilt APK opts out in its manifest; this also covers APKs built before that change.
     adb("shell", "am", "compat", "disable", "NATIVE_HEAP_POINTER_TAGGING", PACKAGE, check=False)
     adb("shell", "svc", "power", "stayon", "true")
+    # Suppress Android's one-time "Viewing full screen" banner over the battle.
+    adb("shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed", check=False)
     host_port, guest_port = control_ports()
     adb("forward", f"tcp:{host_port}", f"tcp:{guest_port}")
     return {
