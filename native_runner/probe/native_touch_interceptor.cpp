@@ -167,6 +167,13 @@ extern "C" void native_touch_game_app_hook(JNIEnv *env, jclass owner_class, jint
       // pointer but do not mutate the selection.
     }
   }
+  // Without the Windows overlay every tap reaches the game itself. While a
+  // native-render match is live, swallow all touches (not only hand/arena
+  // gestures) so the stock replay HUD cannot pause, skip, rewind or close the
+  // battle underneath the harness; the stock UI gets touches back afterwards.
+  if (ready) {
+    consume = true;
+  }
   g_selection.gesture_captured = g_capture.kind != CaptureKind::None;
   const std::uint64_t selection_revision = g_selection.revision;
   pthread_mutex_unlock(&g_touch_mutex);
