@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from native_runner import avd_runtime as avd  # noqa: E402
+from native_runner import content_profile  # noqa: E402
 from native_runner import posix_build  # noqa: E402
 from native_runner.local_config import setting  # noqa: E402
 
@@ -47,6 +48,7 @@ def run_offline_install(*args: str) -> dict:
 def doctor() -> dict:
     checks = {
         "host": f"{platform.system()} {platform.machine()}",
+        "content_profile": content_profile.name(),
         "python": sys.version.split()[0],
         "sdk": str(avd.sdk_root()),
         "adb": avd.adb_path().is_file(),
@@ -82,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("install-original", help="install the unmodified original APK (step 1, needs network)")
     p.add_argument("--apk", type=Path, default=Path(setting("CR_INPUT_APK", str(DEFAULT_ORIGINAL))))
     sub.add_parser("open-network", help="lift the offline firewall so the stock game can download its update")
+    p = sub.add_parser(
+        "seed-base-content", help="base-15.535.3 profile: copy the APK's bundled content into update/ (offline, replaces update-original)"
+    )
+    p.add_argument("--apk", type=Path, default=Path(setting("CR_INPUT_APK", str(DEFAULT_ORIGINAL))))
     p = sub.add_parser("update-original", help="run the stock game online until its update matches (step 2)")
     p.add_argument("--timeout", type=float, default=3600.0)
     p = sub.add_parser("screenshot", help="save runs/avd/<name>.png from the emulator")
@@ -113,7 +119,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "open-network":
         avd.start_avd()
         emit(avd.open_network())
+    elif args.command == "seed-base-content":
+        avd.prepare()
+        emit(run_offline_install("--seed-base-content", str(args.apk.resolve())))
     elif args.command == "update-original":
+        if content_profile.is_base():
+            raise SystemExit("update-original is for the update-15.535.86 profile; with base-15.535.3 run seed-base-content")
         result = avd.update_original(timeout=args.timeout)
         emit(result)
         return 0 if result["ok"] else 1

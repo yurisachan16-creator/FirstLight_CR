@@ -11,7 +11,8 @@ import uuid
 import zipfile
 import hashlib
 
-from native_runner.offline_build import PACKAGE, sha256, supported_engine
+from native_runner import content_profile
+from native_runner.offline_build import PACKAGE, original_apk_problem, sha256, supported_engine
 
 APP = "nullsroyale.rel.free"
 DATA = f"/data/user/0/{APP}"
@@ -66,6 +67,11 @@ def resource_hashes(device, directory=DATA + "/update"):
 
 
 def validate_resources(hashes):
+    if content_profile.is_base():
+        for name, digest in content_profile.pinned_runtime_files().items():
+            if hashes.get(name) != digest:
+                raise ValueError(f"Device update/{name} does not match {content_profile.BASE_PROFILE}; run --seed-base-content first")
+        return
     release = supported_engine()
     if hashes.get("fingerprint.json") != release["runtime_fingerprint_sha256"]:
         raise ValueError("First open the unmodified game yourself and finish the supported resource update")
@@ -107,17 +113,63 @@ def check_prepared_device(device):
 def check_original_game(device, apk):
     """Verify the original APK and updated VM before building the probe APK."""
     release = supported_engine()
-    if sha256(apk) != release["apk_sha256"]:
-        raise ValueError("Input APK SHA-256 differs from supported_engine.json")
+    problem = None if sha256(apk) == release["apk_sha256"] else original_apk_problem(apk)
+    if problem:
+        raise ValueError(f"Input APK is not the supported original: {problem}")
     installed_path, hashes = check_prepared_device(device)
     installed_sha256 = device.shell(f"sha256sum {shlex.quote(installed_path)}").split()[0]
-    if installed_sha256 != release["apk_sha256"]:
-        raise ValueError("Installed game APK differs from the supported original APK")
+    # The whole-file hash carries a per-download watermark: accept the pin or the verified local original.
+    if installed_sha256 not in {release["apk_sha256"], sha256(apk)}:
+        raise ValueError("Installed game APK differs from the supplied original APK")
     return {
         "original_apk_verified": True,
         "apk_version": release["apk_version"],
-        "runtime_content_version": release["runtime_content_version"],
+        "content_profile": content_profile.name(),
+        "runtime_content_version": (
+            content_profile.base_profile()["content_version"] if content_profile.is_base() else release["runtime_content_version"]
+        ),
         "resource_files_verified": len(hashes),
+    }
+
+
+def seed_base_content(device, apk):
+    """Copy the APK's bundled base content into update/ (base-15.535.3 profile only)."""
+    if not content_profile.is_base():
+        raise ValueError(f"--seed-base-content requires CR_CONTENT_PROFILE={content_profile.BASE_PROFILE}")
+    problem = original_apk_problem(apk)
+    if problem:
+        raise ValueError(f"Input APK is not the supported original: {problem}")
+    info = device.shell(f"dumpsys package {APP}")
+    if not re.search(r"\bversionName=" + re.escape(supported_engine()["apk_version"]) + r"(?:\s|$)", info):
+        raise ValueError("Install the supported original APK on the device first")
+    device.shell(f"am force-stop {APP}")
+    owner = device.shell(f"stat -c %u:%g {DATA}")
+    if not re.fullmatch(r"\d+:\d+", owner):
+        raise ValueError(f"Could not read the app data owner: {owner}")
+    staging = f"/data/local/tmp/firstlight-seed-{uuid.uuid4().hex}"
+    device.shell(f"mkdir -m 700 {staging}")
+    try:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as local:
+            for name, data in content_profile.seed_payloads(apk).items():
+                path = Path(local) / name
+                path.write_bytes(data)
+                device.run("push", str(path), f"{staging}/{name}")
+        update = f"{DATA}/update"
+        device.shell(f"mkdir -p {update}")
+        for name in content_profile.pinned_runtime_files():
+            device.shell(f"cp {staging}/{name} {update}/{name}")
+        device.shell(f"chown -R {owner} {update} && chmod 771 {update} && chmod 660 {update}/* && restorecon -R {update}")
+    finally:
+        device.shell(f"rm -rf {staging}")
+    hashes = resource_hashes(device)
+    validate_resources(hashes)
+    return {
+        "seeded": True,
+        "content_profile": content_profile.name(),
+        "content_version": content_profile.base_profile()["content_version"],
+        "files": sorted(hashes),
     }
 
 
@@ -215,11 +267,14 @@ def main(argv=None):
     group.add_argument("--apk", type=Path)
     group.add_argument("--check-original", type=Path)
     group.add_argument("--restore")
+    group.add_argument("--seed-base-content", type=Path, metavar="ORIGINAL_APK")
     parser.add_argument("--receipt", type=Path)
     args = parser.parse_args(argv)
     device = Device(args.adb, args.serial)
     device.require_offline()
-    if args.check_original:
+    if args.seed_base_content:
+        result = seed_base_content(device, args.seed_base_content)
+    elif args.check_original:
         result = check_original_game(device, args.check_original)
     elif args.restore:
         result = restore(device, args.restore)

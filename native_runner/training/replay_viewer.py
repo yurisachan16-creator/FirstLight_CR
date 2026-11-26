@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..local_config import setting
+from .. import content_profile
 
 from dataclasses import dataclass
 import logging
@@ -319,7 +320,7 @@ def _match_config_from_replay(replay: TrainingReplayV1) -> MatchConfig:
         seed=config.seed,
         game_mode=config.game_mode,
         arena=config.arena,
-        location=int(tags.get("location", 15000199)),
+        location=int(tags.get("location", content_profile.default_location())),
         level_cap=int(tags.get("level_cap", 0)),
         minimum_card_level=int(tags.get("minimum_card_level", 0)),
         deck0_form_availability=tuple(int(value) for value in tags.get("deck0_form_availability", (0,) * 8)),

@@ -20,6 +20,27 @@ def supported_engine():
     return json.loads((PACKAGE / "supported_engine.json").read_text(encoding="utf-8"))
 
 
+def original_apk_problem(apk):
+    """Return why ``apk`` is not the supported original APK, or None when it is.
+
+    Accept the historical whole-file pin, or an APK whose ``lib/arm64-v8a/libg.so``
+    is byte-identical to the pinned engine. Null's writes a random entry into the
+    APK signing block on every download, so the whole-file hash cannot be
+    reproduced from a current download; ``libg.so`` is what the probe binds to.
+    """
+    release = supported_engine()
+    try:
+        if sha256(apk) == release["apk_sha256"]:
+            return None
+        with zipfile.ZipFile(apk) as archive:
+            libg = hashlib.sha256(archive.read("lib/arm64-v8a/libg.so")).hexdigest()
+    except (OSError, KeyError, zipfile.BadZipFile) as error:
+        return f"not a readable arm64 APK: {error}"
+    if libg != release["libg_sha256"]:
+        return f"lib/arm64-v8a/libg.so {libg} differs from the supported engine {release['libg_sha256']}"
+    return None
+
+
 def relative_file(name):
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name:
@@ -41,8 +62,9 @@ def validate_update(update: Path):
 
 def prepare(input_apk: Path, update: Path | None, workspace: Path):
     release = supported_engine()
-    if sha256(input_apk) != release["apk_sha256"]:
-        raise ValueError("Input APK SHA-256 differs from supported_engine.json; supply the unmodified supported APK")
+    problem = original_apk_problem(input_apk)
+    if problem:
+        raise ValueError(f"Input APK is not the supported original ({problem}); supply the unmodified supported APK")
     if update is None:
         raise ValueError("Local resource compilation requires --runtime-update.")
     manifest = validate_update(update)
@@ -132,9 +154,11 @@ def main():
     p.add_argument("--probe", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "check-input":
-        if sha256(args.input_apk) != supported_engine()["apk_sha256"]:
-            raise ValueError("Input APK SHA-256 differs from supported_engine.json")
-        print("Verified original APK", flush=True)
+        problem = original_apk_problem(args.input_apk)
+        if problem:
+            raise ValueError(f"Input APK is not the supported original: {problem}")
+        exact = sha256(args.input_apk) == supported_engine()["apk_sha256"]
+        print("Verified original APK" + ("" if exact else " (libg.so payload; whole-file hash carries a per-download watermark)"), flush=True)
     elif args.command == "prepare":
         prepare(args.input_apk, args.runtime_update, args.workspace)
     elif args.command == "patch":

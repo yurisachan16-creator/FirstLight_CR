@@ -11,6 +11,7 @@ from __future__ import annotations
 from .paths import PACKAGE_ROOT, WORKSPACE_ROOT
 from .local_config import setting
 from .competitive_data import DATA_ROOT, _manifest, load_competitive_data
+from . import content_profile
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -210,7 +211,7 @@ class RulesetManifestV1(ContractMixin):
         workspace = Path(workspace_root).resolve()
         errors: list[str] = []
         # Engine/resource identities are checked against the live probe; their bytes stay on the device.
-        pinned_sources = _manifest()["source_files"]
+        pinned_sources = {**_manifest()["source_files"], **content_profile.ruleset_file_pins()}
         for group, values in self.files.items():
             for name, expected in values.items():
                 if group in {"engine", "data", "visual"} and pinned_sources.get(name) == expected:
@@ -263,6 +264,10 @@ def build_ruleset_manifest(
     effective_ruleset_version = ruleset_version or runtime_facts["content_version"]
     runtime_content_version = runtime_facts["content_version"]
     runtime_content_manifest_sha1 = runtime_facts["content_manifest_sha1"]
+    if content_profile.is_base():
+        # The engine runs the APK-bundled content; catalogs keep their 15.535.86 ruleset version.
+        runtime_content_version = content_profile.base_profile()["content_version"]
+        runtime_content_manifest_sha1 = content_profile.base_profile()["content_manifest_sha1"]
 
     engine = [Path(item).resolve() for item in engine_paths]
     simulator = [
@@ -299,6 +304,13 @@ def build_ruleset_manifest(
         "data": {**source_files, **_hash_paths(data, workspace)},
         "visual": {name: digest for name, digest in source_files.items() if name.endswith(("/assets.scdb", "/fingerprint.json"))},
     }
+    if content_profile.is_base():
+        for group in ("data", "visual"):
+            file_groups[group] = {
+                name: digest
+                for name, digest in file_groups[group].items()
+                if not name.endswith(("/assets.scdb", "/fingerprint.json"))
+            } | content_profile.ruleset_file_pins()
     if engine:
         for path in engine:
             if sha256_file(path) not in file_groups["engine"].values():

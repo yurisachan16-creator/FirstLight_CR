@@ -14,6 +14,7 @@ from typing import Any, Iterable
 
 
 from .paths import PACKAGE_ROOT
+from . import content_profile
 
 DEFAULT_TEMPLATE_PATH = PACKAGE_ROOT / "data" / "native_match.json"
 # Synthetic local identities; these never refer to server accounts.
@@ -102,7 +103,8 @@ class MatchConfig:
     seed: int = 1
     game_mode: int = 72000006
     arena: int = 54000001
-    location: int = 15000199
+    # 15000199 exists only in the 15.535.86 update; the base-15.535.3 profile uses a bundled arena.
+    location: int = field(default_factory=content_profile.default_location)
     level_cap: int = 0
     minimum_card_level: int = 0
     # King Tower level is an independent native replay input. ``lvlcap`` and

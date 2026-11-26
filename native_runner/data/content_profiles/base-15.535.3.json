@@ -1,0 +1,17 @@
+{
+  "schema": "firstlight-content-profile.v1",
+  "name": "base-15.535.3",
+  "description": "Content bundled inside the Null's Royale 15.535.13 APK. Null's servers moved to V16 in November 2026 and no longer deliver the 15.535.86 update, so this profile seeds update/ from the APK's own assets instead of downloading anything.",
+  "apk_version": "15.535.13",
+  "libg_sha256": "110aa2b5cac391c498645e072b0d88729428c2c2845e7e2737ca8ee979059783",
+  "content_version": "15.535.3",
+  "content_manifest_sha1": "4a64dd8ad42e052d7dd51672fbaedc40155c5e7d",
+  "fingerprint_sha256": "f67740326725ccec63bb8eaf31f60908cad7b4ee02945c5e79efb6db71960419",
+  "assets_sha256": "5c99be07db214452b78c4400c1a6b0f5eb836fb94bba95021f1ed6693a285a06",
+  "seed_files": {
+    "fingerprint.json": "assets/fingerprint.json",
+    "assets.scdb": "assets/assets.scdb"
+  },
+  "default_location": 15000002,
+  "max_location": 15000198
+}

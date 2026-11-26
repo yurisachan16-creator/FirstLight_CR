@@ -28,6 +28,7 @@ from .arena import (
 from .building_placement_profiles import building_placement_profile
 from .card_specs import CardSpecCatalog, build_card_catalog, sha256_file
 from .attestation import RunnerAttestationError, verify_runner_attestation
+from . import content_profile
 from .contracts import (
     ActionKind,
     ActionMaskV1,
@@ -731,7 +732,7 @@ class BattleEnvV1:
                 seed=chosen_seed,
                 game_mode=config.game_mode,
                 arena=config.arena,
-                location=int(config.tags.get("location", 15000199)),
+                location=int(config.tags.get("location", content_profile.default_location())),
                 level_cap=int(config.tags.get("level_cap", 0)),
                 minimum_card_level=int(config.tags.get("minimum_card_level", 0)),
                 deck0_form_availability=tuple(

@@ -57,7 +57,7 @@ def test_output_reuses_device_resources_and_rejects_bundled_update(tmp_path, mon
 def test_wrong_apk_rejected_before_creating_output(tmp_path):
     apk = tmp_path / "wrong.apk"
     apk.write_bytes(b"unsupported")
-    with pytest.raises(ValueError, match="SHA-256"):
+    with pytest.raises(ValueError, match="not the supported original"):
         prepare(apk, None, tmp_path / "output")
     assert not (tmp_path / "output").exists()
 

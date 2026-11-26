@@ -18,7 +18,26 @@
 
 把 `macos/env.example` 里的配置抄进仓库根目录的 `.env`，改成本机的绝对路径。然后运行 `macos/fl doctor` 检查。
 
-## 步骤
+## 2026 年 11 月之后：用基础资源档案
+
+Null's 私服 11 月初升级到 V16，15.535.13 客户端会被强制更新，服务器也不再下发 15.535.86 资源包，所以下面原流程里的 `update-original` 已经走不通。改用 **`base-15.535.3` 档案**：
+
+- 在 `.env` 里加 `CR_CONTENT_PROFILE=base-15.535.3`
+- 原版 APK 仍是 15.535.13；整包 SHA-256 每次下载都带随机水印，现在只要 `lib/arm64-v8a/libg.so` 与锁定值一致即可（`110aa2b5…`）
+- `seed-base-content` 把 APK 自带的 `assets/fingerprint.json`、`assets/assets.scdb` 放进 `update/`，全程不联网；规则集改为锁定这两个文件和 15.535.3 的版本号，引擎上报的身份对不上仍会拒绝
+- 对局默认地图改为 15000002（PvP_goblin），因为 15000199 只存在于 15.535.86
+- 代价：卡牌数值是 15.535.3 的，和模型训练时的 15.535.86 有小差别；15.535.86 才加入的卡牌/形态不可用
+
+```sh
+macos/fl avd-start
+macos/fl install-original
+macos/fl seed-base-content      # 代替 update-original
+macos/fl check-original
+macos/fl build
+macos/fl install
+```
+
+## 步骤（原 15.535.86 档案）
 
 ```sh
 macos/fl doctor                 # 看缺什么
