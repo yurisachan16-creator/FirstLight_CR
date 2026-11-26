@@ -871,6 +871,14 @@ def _validate_topology(ready: Mapping[str, object], *, world_size: int) -> tuple
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--deck-pool", type=Path, required=True)
+    parser.add_argument(
+        "--allow-unverified-deck-pool",
+        action="store_true",
+        help=(
+            "accept a deck pool other than the verified 7,695/20 formal pool, e.g. one rebuilt from the "
+            "public replays and filtered for the base-15.535.3 content profile"
+        ),
+    )
     parser.add_argument("--checkpoint", type=Path, required=True, help="fresh learner initialization checkpoint")
     parser.add_argument(
         "--il-anchor-checkpoint", type=Path, help="frozen IL opponent checkpoint; defaults to --checkpoint"
@@ -1169,7 +1177,14 @@ def main() -> int:
 
     manifest = DeckPoolManifestV4.load(args.deck_pool)
     if len(manifest.decks) != 7_695 or len(manifest.focus_decks) != 20:
-        raise ValueError("formal cluster PPO requires the verified 7,695/20 pool")
+        if not args.allow_unverified_deck_pool:
+            raise ValueError("formal cluster PPO requires the verified 7,695/20 pool")
+        if rank == 0:
+            print(
+                f"WARNING: unverified deck pool ({len(manifest.decks)} decks, "
+                f"{len(manifest.focus_decks)} focus); results are not comparable with the formal 7,695/20 runs",
+                flush=True,
+            )
     deck_average_elixir_by_id = {deck.deck_id: deck.average_elixir for deck in manifest.decks}
     decks_by_id = {deck.deck_id: deck for deck in manifest.decks}
     try:

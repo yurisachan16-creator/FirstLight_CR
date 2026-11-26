@@ -10,7 +10,13 @@ from typing import Any, Iterator, Mapping
 import orjson
 import pyarrow.parquet as pq
 
-from .deck_pool import build_deck_pool_manifest_from_counts, deck_counts_from_payloads, mark_focus_decks
+from .deck_pool import (
+    DeckPoolManifestV4,
+    build_deck_pool_manifest_from_counts,
+    deck_counts_from_payloads,
+    deck_identity_from_keys,
+    mark_focus_decks,
+)
 
 
 DEFAULT_DATASET_ROOT = Path(__file__).resolve().parents[3] / "datasets"
@@ -57,7 +63,18 @@ def main() -> int:
     parser.add_argument("--minimum-uses", type=int, default=5)
     parser.add_argument("--focus-decks", type=Path)
     parser.add_argument("--expected-pool-size", type=int)
+    parser.add_argument(
+        "--exclude-card-id",
+        type=int,
+        action="append",
+        default=[],
+        help=(
+            "drop every deck (and focus deck) containing this card, e.g. 26000106 which exists only in the "
+            "15.535.86 update and not in the base-15.535.3 content profile; repeatable"
+        ),
+    )
     args = parser.parse_args()
+    excluded = set(args.exclude_card_id)
 
     parts = tuple(sorted(args.dataset_root.glob("*/replays/*.parquet")))
     if not parts:
@@ -68,8 +85,28 @@ def main() -> int:
         minimum_uses=args.minimum_uses,
         metadata={**scan_metadata, "dataset_root": str(args.dataset_root.resolve()), "parquet_part_count": len(parts)},
     )
-    if args.focus_decks is not None:
-        manifest = mark_focus_decks(manifest, _focus_identities(args.focus_decks))
+    focus_identities = _focus_identities(args.focus_decks) if args.focus_decks is not None else None
+    if excluded:
+        kept = tuple(item for item in manifest.decks if not excluded & set(item.card_ids))
+        manifest = DeckPoolManifestV4(
+            decks=kept,
+            minimum_uses=manifest.minimum_uses,
+            metadata={
+                **dict(manifest.metadata),
+                "excluded_card_ids": sorted(excluded),
+                "excluded_deck_count": len(manifest.decks) - len(kept),
+                "pool_size": len(kept),
+                "pool_player_uses": sum(item.uses for item in kept),
+            },
+        )
+        if focus_identities is not None:
+            focus_identities = tuple(
+                (card_keys, tower_key)
+                for card_keys, tower_key in focus_identities
+                if not excluded & set(deck_identity_from_keys(card_keys, tower_key, uses=1).card_ids)
+            )
+    if focus_identities is not None:
+        manifest = mark_focus_decks(manifest, focus_identities)
     if args.expected_pool_size is not None and len(manifest.decks) != args.expected_pool_size:
         raise RuntimeError(f"expected {args.expected_pool_size} decks, found {len(manifest.decks)}")
     manifest.save(args.output)
