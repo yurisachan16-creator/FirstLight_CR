@@ -50,7 +50,7 @@ macos/fl install
 
 ### 人机对战
 
-模拟器窗口显示在 Mac mini 的屏幕上，用屏幕共享或 UU 远程连过去操作：先点下方手牌，再点场地。最简单的是双击 `macos/play_vs_ai.command`（可以复制到桌面），它会重启引擎并开一局，你在下方、AI 在上方。
+模拟器窗口显示在 Mac mini 的屏幕上，用屏幕共享或 UU 远程连过去操作：先点下方手牌，再点场地。最简单的是双击 `macos/play_vs_ai.command`（可以复制到桌面），它会重启引擎并开一局，你在下方、AI 在上方。用环境变量选难度：`FIRSTLIGHT_CHECKPOINT`（IL < Active IL < General < 速猪专精）、`FIRSTLIGHT_SPEED`（0.25/0.5/1/2/4；远程操作建议 0.5）、`FIRSTLIGHT_MATCH`（卡组文件）。双方卡牌等级由规则集固定为 11 级。
 
 probe 的触控拦截器按 **1080×1920** 的固定布局识别手牌和场地（MuMu 默认分辨率），所以 AVD 必须是 1080×1920；`avd-create` 已按这个尺寸创建。旧的 720×1280 AVD 需要把 `config.ini` 里的 `hw.lcd.width/height/density` 改成 1080/1920/440 再重启。
 
