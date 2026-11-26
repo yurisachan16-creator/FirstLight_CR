@@ -161,6 +161,11 @@ def seed_base_content(device, apk):
         for name in content_profile.pinned_runtime_files():
             device.shell(f"cp {staging}/{name} {update}/{name}")
         device.shell(f"chown -R {owner} {update} && chmod 771 {update} && chmod 660 {update}/* && restorecon -R {update}")
+        # restorecon leaves root-copied files without the app's MLS categories; match the data directory exactly.
+        context = device.shell(f"stat -c %C {DATA}")
+        if not re.fullmatch(r"u:object_r:app_data_file:s0(:c\d+(,c\d+)*)?", context):
+            raise ValueError(f"Unexpected app data SELinux context: {context}")
+        device.shell(f"chcon -R {context} {update}")
     finally:
         device.shell(f"rm -rf {staging}")
     hashes = resource_hashes(device)
