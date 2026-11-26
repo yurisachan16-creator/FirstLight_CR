@@ -319,6 +319,15 @@ serial_csv=$(IFS=,; echo "${serials[*]}")
   --probe "$probe" \
   --serials "$serial_csv" \
   --output "$artifact/probe-install-$stamp.json"
+if [[ ${CR_CONTENT_PROFILE:-} == base-15.535.3 ]]; then
+  # Guests whose cloned userdata could not be decrypted boot fresh; seed the
+  # APK-bundled base content into update/ before any engine starts.
+  "$python" "$script_dir/seed_guests_base_content.py" \
+    --serials "$serial_csv" \
+    --adb "$adb" \
+    --output "$artifact/seed-base-content-$stamp.json" \
+    >"$logs/seed-base-content.log" 2>&1
+fi
 
 # CR_EMULATOR_INITDATA is a prepared offline guest data image. Each clone
 # already contains its matching update cache; never export or push resources.
