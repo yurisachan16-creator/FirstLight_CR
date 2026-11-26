@@ -184,12 +184,24 @@ def start_avd(headless: bool = False, wipe: bool = False) -> dict:
 
 
 def stop_avd() -> dict:
+    """Flush and power the guest off cleanly before killing the emulator.
+
+    ``emu kill`` alone is a power cut: files written shortly before (for example
+    the seeded update/ content restored by offline_install) can be lost, and a
+    userdata image exported afterwards then boots without them.
+    """
     if device_state() == "absent":
         return {"ok": True, "stopped": False}
-    adb("emu", "kill", check=False)
-    deadline = time.monotonic() + 60.0
+    adb("shell", "sync", check=False, timeout=60)
+    adb("shell", "reboot", "-p", check=False, timeout=30)
+    deadline = time.monotonic() + 90.0
     while time.monotonic() < deadline and device_state() != "absent":
         time.sleep(1.0)
+    if device_state() != "absent":
+        adb("emu", "kill", check=False)
+        deadline = time.monotonic() + 60.0
+        while time.monotonic() < deadline and device_state() != "absent":
+            time.sleep(1.0)
     return {"ok": device_state() == "absent", "stopped": True}
 
 
