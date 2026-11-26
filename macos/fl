@@ -1,0 +1,4 @@
+#!/bin/sh
+# FirstLight CR macOS entry point: runs macos/firstlight.py with the repo virtualenv.
+here=$(cd "$(dirname "$0")/.." && pwd)
+exec "${CR_PYTHON:-$here/.venv/bin/python}" "$here/macos/firstlight.py" "$@"
