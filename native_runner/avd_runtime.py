@@ -109,7 +109,10 @@ def create_avd(force: bool = False) -> Path:
         raise FileNotFoundError(f"Missing avdmanager: {avdmanager}")
     if avd_directory().exists() and not force:
         raise FileExistsError(f"AVD already exists: {avd_directory()} (pass --force to recreate)")
-    command = [str(avdmanager), "create", "avd", "-n", avd_name(), "-k", SYSTEM_IMAGE, "-d", "pixel_4"]
+    # Apple silicon runs the arm64 image natively; x86_64 Linux hosts use the x86_64 image,
+    # whose Android 11+ builds translate the game's arm64 libraries (as the Linux AVD guide does).
+    image = setting("CR_AVD_SYSTEM_IMAGE", SYSTEM_IMAGE)
+    command = [str(avdmanager), "create", "avd", "-n", avd_name(), "-k", image, "-d", "pixel_4"]
     if force:
         command.append("--force")
     subprocess.run(command, input="no\n", text=True, env=_env(), check=True, timeout=300)
