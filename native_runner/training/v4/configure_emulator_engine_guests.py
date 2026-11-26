@@ -137,7 +137,10 @@ def control(port: int, command: str, timeout: float = 5.0) -> dict[str, Any]:
 
 
 def wait_endpoint(host_port: int, engine_id: int, online_cpus: int) -> dict[str, Any]:
-    deadline = time.monotonic() + 180.0
+    # Fresh guests (no ARM translation cache) can need more than 180 s before the
+    # game has loaded its content and mapped assets.scdb; CR_PPO_ENGINE_READY_TIMEOUT
+    # extends the per-engine cold-start wait.
+    deadline = time.monotonic() + float(setting("CR_PPO_ENGINE_READY_TIMEOUT", "180"))
     last_error = "not attempted"
     while time.monotonic() < deadline:
         try:
