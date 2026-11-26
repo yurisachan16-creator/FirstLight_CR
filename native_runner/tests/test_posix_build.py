@@ -14,7 +14,10 @@ MANIFEST = (
 
 def test_cluster_manifest_matches_powershell_build():
     text = posix_build.patch_cluster_manifest(MANIFEST, engine_count=3)
-    assert '<application android:name="com.supercell.clashroyale.EngineClusterApplication" android:allowBackup="true"' in text
+    assert (
+        '<application android:name="com.supercell.clashroyale.EngineClusterApplication" '
+        'android:allowNativeHeapPointerTagging="false" android:allowBackup="true"'
+    ) in text
     assert text.count("<activity ") == 3
     for engine_id in range(3):
         assert f'android:name="com.supercell.clashroyale.Engine{engine_id}App"' in text

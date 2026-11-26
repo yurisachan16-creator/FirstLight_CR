@@ -340,6 +340,9 @@ def prepare(require_android_12: bool = True) -> dict:
         if not re.match(r"^12(?:\.|$)", release):
             raise RuntimeError(f"The AVD must run Android 12; reported: {release}")
     rules = guests.configure_firewall(serial())
+    # Native arm64 tags heap pointers; the probe expects untagged ones (as under MuMu's translation).
+    # The rebuilt APK opts out in its manifest; this also covers APKs built before that change.
+    adb("shell", "am", "compat", "disable", "NATIVE_HEAP_POINTER_TAGGING", PACKAGE, check=False)
     adb("shell", "svc", "power", "stayon", "true")
     host_port, guest_port = control_ports()
     adb("forward", f"tcp:{host_port}", f"tcp:{guest_port}")

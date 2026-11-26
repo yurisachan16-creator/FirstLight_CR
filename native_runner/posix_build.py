@@ -165,7 +165,13 @@ def patch_cluster_manifest(manifest_text: str, engine_count: int, debuggable: bo
     if APPLICATION_ANCHOR not in manifest_text or MANIFEST_ANCHOR not in manifest_text:
         raise RuntimeError("Could not find the application manifest insertion point.")
     application = '<application android:name="com.supercell.clashroyale.EngineClusterApplication"'
-    text = manifest_text.replace(APPLICATION_ANCHOR, f'{application} android:allowBackup="true"')
+    # Native arm64 Android (e.g. an Apple-silicon AVD) tags heap pointers (top byte 0xb4). The probe
+    # validates object pointers against untagged /proc/self/maps ranges, as on MuMu's translated
+    # arm64, so opt the app out of heap pointer tagging. Harmless where tagging is unavailable.
+    text = manifest_text.replace(
+        APPLICATION_ANCHOR,
+        f'{application} android:allowNativeHeapPointerTagging="false" android:allowBackup="true"',
+    )
     if debuggable:
         text = text.replace(application, f'{application} android:debuggable="true"')
     activities = []
