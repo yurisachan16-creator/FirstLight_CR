@@ -118,9 +118,11 @@ def create_avd(force: bool = False) -> Path:
         "hw.ramSize": setting("CR_AVD_MEMORY_MB", "3072"),
         "hw.cpu.ncore": setting("CR_AVD_CORES", "4"),
         "disk.dataPartition.size": setting("CR_AVD_DATA_SIZE", "12G"),
-        "hw.lcd.width": "720",
-        "hw.lcd.height": "1280",
-        "hw.lcd.density": "320",
+        # The probe's native touch interceptor maps hand/arena taps with a fixed
+        # 1080x1920 layout (MuMu's default), so the AVD must use the same pixels.
+        "hw.lcd.width": "1080",
+        "hw.lcd.height": "1920",
+        "hw.lcd.density": "440",
         "hw.keyboard": "yes",
         "hw.gpu.enabled": "yes",
         "hw.gpu.mode": setting("CR_EMULATOR_GPU", "host"),
